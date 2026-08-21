@@ -1,0 +1,20 @@
+# Local Database (Prevents student chat history and progress from being tracked)
+*.db
+*.sqlite3
+
+# Python Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+
+# PyCharm Project Settings
+.idea/
+
+# Operating System Files
+.DS_Store
+Thumbs.db

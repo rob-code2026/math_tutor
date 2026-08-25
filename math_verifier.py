@@ -1,44 +1,38 @@
-import re
 import sympy as sp
+from sympy.parsing.sympy_parser import (
+    parse_expr,
+    standard_transformations,
+    implicit_multiplication_application,
+    convert_xor,
+)
 
+# Enable implicit multiplication (2x -> 2*x) and XOR powers (x^2 -> x**2)
+TRANSFORMATIONS = standard_transformations + (
+    implicit_multiplication_application,
+    convert_xor,
+)
 
-def verify_math_expression(expr_str):
-  """Uses SymPy to evaluate raw expressions safely."""
-  try:
-    clean_expr = expr_str.replace("=", "==").strip()
-    parsed = sp.sympify(clean_expr)
-    return str(parsed)
-  except Exception:
-    return None
+def check_student_answer(student_input, expected_expr):
+    """
+    Evaluates algebraic/numeric mathematical equivalence using SymPy.
+    Handles '3x', 'x^2', fractions, and algebraic expansions.
+    """
+    if not student_input or not str(student_input).strip():
+        return False
 
+    clean_input = str(student_input).strip()
+    clean_expected = str(expected_expr).strip()
 
-def check_calculus_answer(student_input, expected_expr, variable='x'):
-  """Checks symbolic mathematical equivalence for calculus expressions."""
-  try:
-    var = sp.Symbol(variable)
+    # Direct string match shortcut
+    if clean_input.lower() == clean_expected.lower():
+        return True
 
-    # Parse student input and expected solution into SymPy mathematical objects
-    s_expr = sp.sympify(student_input)
-    e_expr = sp.sympify(expected_expr)
+    try:
+        # Parse expressions safely with flexible math transformations
+        s_val = parse_expr(clean_input, transformations=TRANSFORMATIONS)
+        e_val = parse_expr(clean_expected, transformations=TRANSFORMATIONS)
 
-    # Simplify the difference between student answer and expected solution
-    # If (student_answer - expected_answer) simplifies to 0, they are mathematically identical
-    difference = sp.simplify(s_expr - e_expr)
-
-    return difference == 0
-  except Exception:
-    # Fallback to normalized text comparison
-    return student_input.strip().lower() == expected_expr.strip().lower()
-
-
-def check_student_answer(student_input, expected_expr, is_calculus=False, variable='x'):
-  """Evaluates student answers. Automatically routes calculus expressions when flagged."""
-  if is_calculus:
-    return check_calculus_answer(student_input, expected_expr, variable)
-
-  try:
-    s_val = sp.sympify(student_input.strip())
-    e_val = sp.sympify(expected_expr.strip())
-    return sp.simplify(s_val - e_val) == 0
-  except Exception:
-    return student_input.strip().lower() == expected_expr.strip().lower()
+        # Check if difference simplifies to zero: (student - expected) == 0
+        return sp.simplify(s_val - e_val) == 0
+    except Exception:
+        return False

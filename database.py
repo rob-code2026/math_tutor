@@ -1,171 +1,135 @@
 import sqlite3
-import json
-from datetime import datetime
 
 DB_FILE = "math_tutor.db"
+
+CURRICULUM_TREE = {
+    "L1": {
+        "title": "Level 1: Basic Arithmetic & Foundations",
+        "subtopics": {
+            "L1_1": "Integer Operations",
+            "L1_2": "Fractions & Decimals",
+            "L1_3": "Order of Operations (PEMDAS)",
+        },
+    },
+    "L2": {
+        "title": "Level 2: Introductory Algebra",
+        "subtopics": {
+            "L2_1": "Linear Equations in One Variable",
+            "L2_2": "Evaluating Algebraic Expressions",
+            "L2_3": "Basic Inequalities",
+        },
+    },
+    "L3": {
+        "title": "Level 3: Polynomials & Factoring",
+        "subtopics": {
+            "L3_1": "Expanding Expressions & Distributive Law",
+            "L3_2": "Factoring Quadratic Polynomials",
+            "L3_3": "Simplifying Algebraic Fractions",
+        },
+    },
+    "L4": {
+        "title": "Level 4: Exponents & Radicals",
+        "subtopics": {
+            "L4_1": "Exponent Rules & Scientific Notation",
+            "L4_2": "Simplifying Radical Expressions",
+            "L4_3": "Fractional Exponents",
+        },
+    },
+    "L5": {
+        "title": "Level 5: Functions & Graphs",
+        "subtopics": {
+            "L5_1": "Linear Functions & Slope-Intercept Form",
+            "L5_2": "Quadratic Functions & Parabolas",
+            "L5_3": "Domain and Range Analysis",
+        },
+    },
+    "L6": {
+        "title": "Level 6: Systems of Equations & Inequalities",
+        "subtopics": {
+            "L6_1": "Solving Systems by Substitution",
+            "L6_2": "Solving Systems by Elimination",
+            "L6_3": "Systems of Linear Inequalities",
+        },
+    },
+    "L7": {
+        "title": "Level 7: Trigonometry",
+        "subtopics": {
+            "L7_1": "Right Triangle Trigonometry (Sine, Cosine, Tangent)",
+            "L7_2": "The Unit Circle & Radian Measure",
+            "L7_3": "Trigonometric Identities",
+        },
+    },
+    "L8": {
+        "title": "Level 8: Exponential & Logarithmic Functions",
+        "subtopics": {
+            "L8_1": "Logarithm Rules & Properties",
+            "L8_2": "Exponential Equations",
+            "L8_3": "Logarithmic Equations",
+        },
+    },
+    "L9": {
+        "title": "Level 9: Differential Calculus",
+        "subtopics": {
+            "L9_1": "Limits & Continuity",
+            "L9_2": "Power Rule & Basic Derivatives",
+            "L9_3": "Product, Quotient, and Chain Rules",
+        },
+    },
+    "L10": {
+        "title": "Level 10: Integral Calculus",
+        "subtopics": {
+            "L10_1": "Antiderivatives & Indefinite Integrals",
+            "L10_2": "Definite Integrals & Fundamental Theorem of Calculus",
+            "L10_3": "Integration by Substitution (u-Substitution)",
+        },
+    },
+}
 
 
 def init_db():
   conn = sqlite3.connect(DB_FILE)
   cursor = conn.cursor()
-
-  # Students table
-  cursor.execute('''
-        CREATE TABLE IF NOT EXISTS students (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE NOT NULL,
-            current_topic_id TEXT DEFAULT 'L1_NUMBERS',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-  # Topic Mastery table
-  cursor.execute('''
-        CREATE TABLE IF NOT EXISTS progress (
-            student_id INTEGER,
-            topic_id TEXT,
-            mastery_score INTEGER DEFAULT 0,
-            consecutive_errors INTEGER DEFAULT 0,
-            PRIMARY KEY (student_id, topic_id),
-            FOREIGN KEY (student_id) REFERENCES students (id)
-        )
-    ''')
-
-  # Chat History table
-  cursor.execute('''
-        CREATE TABLE IF NOT EXISTS chat_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            student_id INTEGER,
-            role TEXT,
-            message TEXT,
-            visual_type TEXT DEFAULT 'none',
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (student_id) REFERENCES students (id)
-        )
-    ''')
-
+  cursor.execute("""CREATE TABLE IF NOT EXISTS students (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL
+    )""")
+  cursor.execute("""CREATE TABLE IF NOT EXISTS chat_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER, role TEXT, message TEXT
+    )""")
   conn.commit()
   conn.close()
-
-
-def get_or_create_student(name):
-  conn = sqlite3.connect(DB_FILE)
-  cursor = conn.cursor()
-
-  cursor.execute("SELECT id, name, current_topic_id FROM students WHERE name = ?", (name,))
-  row = cursor.fetchone()
-
-  if row:
-    student = {"id": row[0], "name": row[1], "current_topic_id": row[2]}
-    cursor.execute("UPDATE students SET last_active = ? WHERE id = ?", (datetime.now(), student["id"]))
-    conn.commit()
-  else:
-    cursor.execute("INSERT INTO students (name) VALUES (?)", (name,))
-    student_id = cursor.lastrowid
-
-    # Initialize default topic levels for new student
-    topics = ['L1_NUMBERS', 'L2_FRACTIONS', 'L3_OPERATIONS', 'L4_EQUATIONS', 'L5_ALGEBRA']
-    for t in topics:
-      cursor.execute("INSERT INTO progress (student_id, topic_id, mastery_score) VALUES (?, ?, 0)", (student_id, t))
-
-    conn.commit()
-    student = {"id": student_id, "name": name, "current_topic_id": "L1_NUMBERS"}
-
-  conn.close()
-  return student
 
 
 def get_student_list():
   conn = sqlite3.connect(DB_FILE)
   cursor = conn.cursor()
-  cursor.execute("SELECT name FROM students ORDER BY last_active DESC")
-  names = [row[0] for row in cursor.fetchall()]
-  conn.close()
-  return names
-
-
-def get_student_progress(student_id, topic_id):
-  conn = sqlite3.connect(DB_FILE)
-  cursor = conn.cursor()
-  cursor.execute("SELECT mastery_score, consecutive_errors FROM progress WHERE student_id = ? AND topic_id = ?",
-                 (student_id, topic_id))
-  row = cursor.fetchone()
-  conn.close()
-  if row:
-    return {"mastery_score": row[0], "consecutive_errors": row[1]}
-  return {"mastery_score": 0, "consecutive_errors": 0}
-
-
-def update_progress(student_id, topic_id, is_correct):
-  conn = sqlite3.connect(DB_FILE)
-  cursor = conn.cursor()
-
-  prog = get_student_progress(student_id, topic_id)
-  mastery = prog["mastery_score"]
-  errors = prog["consecutive_errors"]
-
-  if is_correct:
-    mastery = min(100, mastery + 15)
-    errors = 0
-  else:
-    errors += 1
-    mastery = max(0, mastery - 5)
-
-  cursor.execute('''
-        INSERT INTO progress (student_id, topic_id, mastery_score, consecutive_errors)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(student_id, topic_id) DO UPDATE SET
-            mastery_score = excluded.mastery_score,
-            consecutive_errors = excluded.consecutive_errors
-    ''', (student_id, topic_id, mastery, errors))
-
-  conn.commit()
-  conn.close()
-  return {"mastery_score": mastery, "consecutive_errors": errors}
-
-
-def evaluate_readiness(student_id):
-  """Calculates overall readiness status for Grade 9 / Algebra 1."""
-  conn = sqlite3.connect(DB_FILE)
-  cursor = conn.cursor()
-  cursor.execute("SELECT topic_id, mastery_score FROM progress WHERE student_id = ?", (student_id,))
+  cursor.execute("SELECT name FROM students")
   rows = cursor.fetchall()
   conn.close()
-
-  mastery_dict = {row[0]: row[1] for row in rows}
-
-  # Prerequisite topics needed for Grade 9 readiness
-  prereqs = {
-    "L1_NUMBERS": "Integer Rules",
-    "L2_FRACTIONS": "Visual Fractions",
-    "L3_OPERATIONS": "Order of Operations",
-    "L4_EQUATIONS": "Linear Equations & Variable Balancing"
-  }
-
-  mastered_skills = []
-  for topic_code, label in prereqs.items():
-    if mastery_dict.get(topic_code, 0) >= 80:
-      mastered_skills.append(label)
-
-  total_prereqs = len(prereqs)
-  readiness_percentage = int((len(mastered_skills) / total_prereqs) * 100)
-
-  is_unlocked = readiness_percentage >= 100
-
-  return {
-    "readiness_percentage": readiness_percentage,
-    "is_unlocked": is_unlocked,
-    "mastered_skills": mastered_skills,
-    "target_grade": "Grade 9 / Algebra 1"
-  }
+  return [r[0] for r in rows]
 
 
-def save_chat(student_id, role, message, visual_type='none'):
+def get_or_create_student(name):
   conn = sqlite3.connect(DB_FILE)
   cursor = conn.cursor()
-  cursor.execute("INSERT INTO chat_history (student_id, role, message, visual_type) VALUES (?, ?, ?, ?)",
-                 (student_id, role, message, visual_type))
+  cursor.execute("SELECT id, name FROM students WHERE name = ?", (name,))
+  row = cursor.fetchone()
+  if not row:
+    cursor.execute("INSERT INTO students (name) VALUES (?)", (name,))
+    conn.commit()
+    sid = cursor.lastrowid
+    conn.close()
+    return {"id": sid, "name": name}
+  conn.close()
+  return {"id": row[0], "name": row[1]}
+
+
+def save_chat(student_id, role, message):
+  conn = sqlite3.connect(DB_FILE)
+  cursor = conn.cursor()
+  cursor.execute(
+      "INSERT INTO chat_history (student_id, role, message) VALUES (?, ?, ?)",
+      (student_id, role, message),
+  )
   conn.commit()
   conn.close()
 
@@ -173,8 +137,80 @@ def save_chat(student_id, role, message, visual_type='none'):
 def load_chat_history(student_id):
   conn = sqlite3.connect(DB_FILE)
   cursor = conn.cursor()
-  cursor.execute("SELECT role, message, visual_type FROM chat_history WHERE student_id = ? ORDER BY id ASC",
-                 (student_id,))
+  cursor.execute(
+      "SELECT role, message FROM chat_history WHERE student_id = ? ORDER BY id"
+      " ASC",
+      (student_id,),
+  )
   rows = cursor.fetchall()
   conn.close()
-  return [{"role": r[0], "message": r[1], "visual_type": r[2]} for r in rows]
+  return [{"role": r[0], "message": r[1]} for r in rows]
+
+def init_db():
+  conn = sqlite3.connect(DB_FILE)
+  cursor = conn.cursor()
+  cursor.execute("""CREATE TABLE IF NOT EXISTS students (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL
+    )""")
+  cursor.execute("""CREATE TABLE IF NOT EXISTS topic_progress (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER,
+        subtopic_id TEXT,
+        correct_count INTEGER DEFAULT 0,
+        UNIQUE(student_id, subtopic_id)
+    )""")
+  cursor.execute("""CREATE TABLE IF NOT EXISTS chat_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER, role TEXT, message TEXT
+    )""")
+  conn.commit()
+  conn.close()
+
+
+def increment_topic_progress(student_id, subtopic_id):
+  conn = sqlite3.connect(DB_FILE)
+  cursor = conn.cursor()
+  cursor.execute(
+      """
+        INSERT INTO topic_progress (student_id, subtopic_id, correct_count)
+        VALUES (?, ?, 1)
+        ON CONFLICT(student_id, subtopic_id) DO UPDATE SET
+        correct_count = correct_count + 1
+    """,
+      (student_id, subtopic_id),
+  )
+  conn.commit()
+  conn.close()
+
+
+def get_all_student_progress(student_id):
+  conn = sqlite3.connect(DB_FILE)
+  cursor = conn.cursor()
+  cursor.execute(
+      """
+        SELECT subtopic_id, correct_count FROM topic_progress
+        WHERE student_id = ?
+    """,
+      (student_id,),
+  )
+  rows = cursor.fetchall()
+  conn.close()
+  return {row[0]: row[1] for row in rows}
+
+def clear_student_chat_history(student_id: int):
+  """Deletes all saved chat messages for a given student."""
+  conn = sqlite3.connect(DB_FILE)
+  cursor = conn.cursor()
+  cursor.execute("DELETE FROM chat_history WHERE student_id = ?", (student_id,))
+  conn.commit()
+  conn.close()
+
+
+def delete_student_record(student_id: int):
+  """Completely removes a student along with their chat history and progress."""
+  conn = sqlite3.connect(DB_FILE)
+  cursor = conn.cursor()
+  cursor.execute("DELETE FROM chat_history WHERE student_id = ?", (student_id,))
+  cursor.execute("DELETE FROM progress WHERE student_id = ?", (student_id,))
+  cursor.execute("DELETE FROM students WHERE id = ?", (student_id,))
+  conn.commit()
+  conn.close()

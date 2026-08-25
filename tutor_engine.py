@@ -1,74 +1,282 @@
-import requests
 import json
 import re
+import time
+import requests
+from google import genai
+from google.genai import types
+from google.genai.errors import APIError
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
 MODEL_NAME = "qwen2-math:7b"
 
-TOPICS = {
-    "L1_NUMBERS": "Basic Counting, Number Line & Negative Numbers",
-    "L2_FRACTIONS": "Visual Fractions, Parts of Whole & Denominators",
-    "L3_OPERATIONS": "Order of Operations & Basic Expressions",
-    "L4_EQUATIONS": "Simple Unknowns & Balancing Equations",
-    "L5_ALGEBRA": "Algebra 1: Slope & Linear Functions",
-    "L6_GEOMETRY": "Geometry: Shapes, Angles & Proofs",
-    "L7_ALGEBRA2": "Algebra 2: Quadratics, Exponents & Logarithms",
-    "L8_PRECALC": "Pre-Calculus: Advanced Functions & Limits",
-    "L9_CALCULUS": "Calculus: Derivatives & Integrals"
-}
+# Minimum delay between consecutive API calls (in seconds)
+MIN_REQUEST_INTERVAL = 4.0
+_last_request_time = 0.0
 
-SYSTEM_PROMPT_TEMPLATE = """
-You are an expert, encouraging, Socratic AI Math Tutor for a teenage student building foundational math skills.
+SYSTEM_INSTRUCTION = """You are MathOS Tutor, an empathetic and highly effective AI math teacher.
+You drive an interactive learning UI with three main panels:
+1. Exam Workspace (Shows active problem, instructions, and step-by-step solution when needed)
+2. Terminology Cards (Key terms related strictly to the active problem)
+3. Chat Facilitator (Your conversation with the student)
 
-CURRENT STUDENT STATE:
-- Student Name: {student_name}
-- Current Active Topic: {topic_description}
-- Mastery Level: {mastery_score}%
-- Consecutive Errors on Current Concept: {consecutive_errors}
+STRICT RULE ENFORCEMENT:
+1. BANNED PHRASES:
+   - NEVER, UNDER ANY CIRCUMSTANCES, SAY "You're welcome!".
+   - NEVER say "Here's your first problem on..." unless 'Recent Chat History' is completely empty.
 
-PEDAGOGICAL INSTRUCTIONS:
-1. Micro-Step Facilitation: Keep explanations brief (3-4 sentences max). End EVERY response with ONE clear question.
-2. Active Facilitation: Always push the lesson forward. If the student asks a side-question, answer concisely, then bring focus back to the math topic.
-3. Remediation Strategy based on Consecutive Errors ({consecutive_errors}):
-   - If 0-1 errors: Give a gentle hint pointing out the specific rule.
-   - If 2 errors: Use an ELI5 (Explain Like I'm 5) analogy (e.g. money, games, pizza). Include a Mermaid diagram block if visual aid helps.
-   - If 3+ errors: Pause the main question. Step down to an even simpler elementary sub-concept (e.g., counting on a number line or balance scale).
-4. Diagram Generation: When explaining visual concepts, output a Mermaid.js diagram inside ```mermaid ... ``` code block.
+2. WHEN STUDENT SOLVES A PROBLEM CORRECTLY (`Verification Status on Previous Attempt: True`):
+   - Acknowledge their correct answer directly in 'chat_response'.
+   - You MUST generate a BRAND NEW problem in 'workspace' that is DIFFERENT from the old problem.
+   - Do NOT repeat equations or numbers from previous turns.
+   - Set 'solution_steps' in 'workspace' to null or an empty list for the new problem.
 
-Format math nicely using LaTeX like $x + 2 = 5$.
-"""
+3. WHEN STUDENT IS STUCK, WRONG (`Verification Status on Previous Attempt: False`), OR ASKS FOR THE SOLUTION/HINT:
+   - Provide a helpful response in 'chat_response'.
+   - Keep the exact same active problem in 'workspace'.
+   - Populate 'solution_steps' in 'workspace' with clear, ordered step-by-step explanations on how to solve the problem.
+
+JSON SCHEMA:
+{
+  "chat_response": "Direct praise, guidance, or brief summary without greeting filler.",
+  "workspace": {
+    "title": "Title of problem",
+    "instructions": "Instructions for solving",
+    "color_coded_html": "Problem statement styled in HTML",
+    "expected_answer": "Canonical exact math answer",
+    "solution_steps": [
+      "Step 1: Explain the first action...",
+      "Step 2: Show intermediate calculation...",
+      "Step 3: State final solution..."
+    ]
+  },
+  "terminologies": [
+    {
+      "term": "Term Name",
+      "color": "#3B82F6",
+      "definition": "Definition"
+    }
+  ]
+}"""
 
 
-def query_ollama(prompt, system_prompt):
-  payload = {
-    "model": MODEL_NAME,
-    "prompt": prompt,
-    "system": system_prompt,
-    "stream": False
-  }
-  try:
-    response = requests.post(OLLAMA_URL, json=payload, timeout=30)
-    if response.status_code == 200:
-      return response.json().get("response", "Error getting response from local Ollama.")
+def _clean_json_response(raw_text):
+    """Strips markdown code blocks or extra whitespace from model output."""
+    cleaned = raw_text.strip()
+    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(r"\s*```$", "", cleaned, flags=re.MULTILINE)
+    return cleaned.strip()
+
+
+def _enforce_rate_limit():
+    """Ensures requests are spaced at least MIN_REQUEST_INTERVAL seconds apart."""
+    global _last_request_time
+    now = time.time()
+    elapsed = now - _last_request_time
+    if elapsed < MIN_REQUEST_INTERVAL:
+        time.sleep(MIN_REQUEST_INTERVAL - elapsed)
+    _last_request_time = time.time()
+
+
+def stream_tutor_payload(
+    student_name,
+    subtopic_title,
+    user_message,
+    is_correct_attempt=None,
+    active_workspace=None,
+    chat_history=None,
+    mode="Local Model (Ollama)",
+    api_key="",
+):
+    """Yields raw JSON tokens as they stream from either Ollama or Gemini."""
+    context_summary = ""
+    if chat_history:
+        recent_history = chat_history[-4:]
+        context_summary = "\n".join(
+            [f"{h['role'].capitalize()}: {h['message']}" for h in recent_history]
+        )
+
+    if is_correct_attempt is True:
+        input_status = "STUDENT SOLVED IT CORRECTLY -> GENERATE NEW PROBLEM"
+    elif is_correct_attempt is False:
+        input_status = "STUDENT ANSWER WAS INCORRECT -> PROVIDE HINT, KEEP PROBLEM"
     else:
-      return f"[Offline Fallback] Ollama not responding on {OLLAMA_URL}. Ensure Ollama is running 'ollama run qwen2.5-math:7b'."
-  except Exception:
-    return "[System Note]: Local Ollama model is offline. (Run 'ollama serve' & 'ollama pull qwen2.5-math:7b' locally to activate)."
+        input_status = "STUDENT ASKED QUESTION / NEEDS HELP"
+
+    prompt = f"""{SYSTEM_INSTRUCTION}
+
+--- CURRENT CONTEXT ---
+Student Name: {student_name}
+Topic: {subtopic_title}
+Status: {input_status}
+Active Problem Before This Message: {json.dumps(active_workspace) if active_workspace else 'None'}
+
+Recent Chat History:
+{context_summary}
+
+Student Input: {user_message}
+
+CRITICAL: Do NOT say "You're welcome!". Generate valid JSON now:"""
+
+    # --- ONLINE MODEL (GEMINI FREE API) ---
+    if mode == "Online (Gemini Free)":
+        clean_key = api_key.strip()
+        if not clean_key:
+            yield json.dumps({
+                "chat_response": (
+                    "⚠️ Please enter a valid Gemini API key in the AI Engine"
+                    " Settings."
+                ),
+                "workspace": active_workspace,
+                "terminologies": [],
+            })
+            return
+
+        client = genai.Client(api_key=clean_key)
+        config = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            max_output_tokens=1024,  # Cap output size to conserve TPM limits
+            temperature=0.3,
+        )
+
+        max_retries = 3
+        backoff_delay = 2.0  # Seconds to wait upon encountering a 429
+
+        for attempt in range(max_retries):
+            try:
+                # Throttle before firing Gemini call
+                _enforce_rate_limit()
+
+                response = client.models.generate_content_stream(
+                    model="gemini-3.6-flash",
+                    contents=prompt,
+                    config=config,
+                )
+
+                for chunk in response:
+                    if chunk.text:
+                        yield chunk.text
+                return  # Completed successfully
+
+            except APIError as e:
+                # Check if error code indicates rate limiting (429 / RESOURCE_EXHAUSTED)
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    if attempt < max_retries - 1:
+                        time.sleep(backoff_delay)
+                        backoff_delay *= 2  # Exponential backoff (2s -> 4s -> 8s)
+                        continue
+
+                    # Retries exhausted - Return Rate Limit payload with visual banner flag
+                    yield json.dumps({
+                        "chat_response": "⚠️ Rate limit reached. Please wait for the cooldown before asking another question.",
+                        "workspace": active_workspace,
+                        "terminologies": [],
+                        "rate_limited": True,
+                        "cooldown_seconds": 15,
+                    })
+                    return
+
+                yield json.dumps({
+                    "chat_response": f"Gemini API Error: {str(e)}",
+                    "workspace": active_workspace,
+                    "terminologies": [],
+                })
+                return
+            except Exception as e:
+                yield json.dumps({
+                    "chat_response": f"Gemini API Error: {str(e)}",
+                    "workspace": active_workspace,
+                    "terminologies": [],
+                })
+                return
+        return
+
+    # --- LOCAL MODEL (OLLAMA DEFAULT) ---
+    try:
+        response = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": MODEL_NAME,
+                "prompt": prompt,
+                "stream": True,
+                "format": "json",
+                "options": {
+                    "temperature": 0.4,
+                    "repeat_penalty": 1.2,
+                },
+            },
+            stream=True,
+            timeout=(10, 300),
+        )
+        response.raise_for_status()
+
+        for line in response.iter_lines():
+            if line:
+                body = json.loads(line.decode("utf-8"))
+                token = body.get("response", "")
+                yield token
+
+    except requests.exceptions.ConnectionError:
+        yield json.dumps({
+            "chat_response": (
+                "Cannot connect to Ollama at http://127.0.0.1:11434. Please ensure"
+                " Ollama is running (`ollama serve`)."
+            ),
+            "workspace": active_workspace
+            or {
+                "title": subtopic_title,
+                "instructions": "Connection Error",
+                "color_coded_html": (
+                    "<span style='color:#EF4444;'>Ollama process offline</span>"
+                ),
+                "expected_answer": "",
+            },
+            "terminologies": [],
+        })
+    except requests.exceptions.Timeout:
+        yield json.dumps({
+            "chat_response": (
+                "The request timed out. The local LLM took longer than 5 minutes"
+                " to respond."
+            ),
+            "workspace": active_workspace
+            or {
+                "title": subtopic_title,
+                "instructions": "Timeout Error",
+                "color_coded_html": (
+                    "<span style='color:#EF4444;'>Response timed out</span>"
+                ),
+                "expected_answer": "",
+            },
+            "terminologies": [],
+        })
+    except Exception as e:
+        yield json.dumps({
+            "chat_response": f"Unexpected error connecting to local LLM: {str(e)}",
+            "workspace": active_workspace
+            or {
+                "title": subtopic_title,
+                "instructions": "System Error",
+                "color_coded_html": "Error loading problem.",
+                "expected_answer": "",
+            },
+            "terminologies": [],
+        })
 
 
-def get_tutor_response(student_name, topic_id, mastery_score, consecutive_errors, chat_history, user_message):
-  topic_desc = TOPICS.get(topic_id, "Foundational Math")
-  system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-    student_name=student_name,
-    topic_description=topic_desc,
-    mastery_score=mastery_score,
-    consecutive_errors=consecutive_errors
-  )
-
-  context = ""
-  for msg in chat_history[-6:]:
-    context += f"\n{msg['role'].upper()}: {msg['message']}"
-
-  full_prompt = f"{context}\nUSER: {user_message}\nASSISTANT:"
-
-  return query_ollama(full_prompt, system_prompt)
+def parse_final_payload(full_raw_response, fallback_workspace=None):
+    """Parses the accumulated streamed text into a validated dictionary."""
+    cleaned = _clean_json_response(full_raw_response)
+    try:
+        return json.loads(cleaned)
+    except Exception:
+        return {
+            "chat_response": cleaned,
+            "workspace": fallback_workspace
+            or {
+                "title": "Math Task",
+                "instructions": "Solve the problem.",
+                "color_coded_html": "Problem state unchanged.",
+                "expected_answer": "",
+            },
+            "terminologies": [],
+        }

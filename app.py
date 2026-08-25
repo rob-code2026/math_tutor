@@ -1,201 +1,408 @@
-import streamlit as st
-import streamlit.components.v1 as components
-import re
-import sqlite3
-
+import time
+import json
 import database as db
-import tutor_engine as engine
 import math_verifier as verifier
+import streamlit as st
+import tutor_engine as engine
 
-# Set Page Configuration
 st.set_page_config(page_title="MathOS AI Tutor", page_icon="🧮", layout="wide")
-
-# Initialize DB
 db.init_db()
 
-# Custom Dark Mode CSS Injection
-st.markdown("""
-    <style>
-    .stApp {
-        background-color: #0F172A;
-        color: #F8FAFC;
-    }
-    div[data-testid="stSidebar"] {
-        background-color: #1E293B !important;
-        border-right: 1px solid #334155;
-    }
-    .main-card {
-        background-color: #1E293B;
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid #334155;
-        margin-bottom: 15px;
-    }
-    .readiness-card {
-        background: linear-gradient(135deg, #064E3B 0%, #022C22 100%);
-        border: 2px solid #10B981;
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 20px;
-        color: #ECFDF5;
-    }
-    .readiness-title {
-        font-size: 1.2rem;
-        font-weight: bold;
-        color: #34D399;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-
-# Helper function to render Mermaid.js diagrams using st.iframe
-def render_mermaid(code):
-    mermaid_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-        <script>mermaid.initialize({{startOnLoad:true, theme:'dark'}});</script>
-        <style>
-            body {{ background-color: #0F172A; margin: 0; padding: 10px; }}
-        </style>
-    </head>
-    <body>
-        <div class="mermaid">
-            {code}
-        </div>
-    </body>
-    </html>
+# --- CUSTOM CSS ---
+st.markdown(
     """
-    st.iframe(srcdoc=mermaid_html, height=220, scrolling=True)
+  <style>
+  .stApp { background-color: #0F172A; color: #F8FAFC; }
+  div[data-testid="stSidebar"] { background-color: #1E293B !important; }
+  .exam-paper { background-color: #1E293B; padding: 20px; border-radius: 12px; border: 2px solid #334155; }
+  .term-card { background-color: #1E293B; border-radius: 8px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #3B82F6; }
+
+  .focus-banner {
+      background: linear-gradient(90deg, #1E293B 0%, #0F172A 100%);
+      border: 1px solid #3B82F6;
+      border-radius: 10px;
+      padding: 12px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+  }
+  .focus-banner-title {
+      color: #94A3B8;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0;
+  }
+  .focus-banner-topic {
+      color: #38BDF8;
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 0;
+  }
+  </style>
+""",
+    unsafe_allow_html=True,
+)
+
+# --- SESSION STATES ---
+if "selected_subtopic" not in st.session_state:
+    st.session_state.selected_subtopic = "L1_1"
+
+if "active_workspace" not in st.session_state:
+    st.session_state.active_workspace = None
+
+if "active_terminologies" not in st.session_state:
+    st.session_state.active_terminologies = []
+
+if "pending_user_input" not in st.session_state:
+    st.session_state.pending_user_input = None
+
+if "ai_mode" not in st.session_state:
+    st.session_state.ai_mode = "Online (Gemini Free)"
+
+if "gemini_api_key" not in st.session_state:
+    st.session_state.gemini_api_key = ""
+
+if "is_generating" not in st.session_state:
+    st.session_state.is_generating = False
 
 
-# Sidebar - Multi-Student Profile
+def render_cooldown_banner(seconds: int = 15):
+    """Displays a dynamic progress bar and visual countdown banner when rate limited."""
+    status_box = st.empty()
+    progress_bar = st.progress(1.0)
+
+    for remaining in range(seconds, 0, -1):
+        status_box.warning(
+            f"⏳ **Rate limit reached:** Please wait **{remaining}s** before sending your next request."
+        )
+        progress_bar.progress(remaining / seconds)
+        time.sleep(1)
+
+    status_box.success("✅ Cooldown complete! You can continue now.")
+    progress_bar.empty()
+    time.sleep(1)
+    status_box.empty()
+
+
+# --- SIDEBAR: STUDENT SELECTION & SETTINGS ---
 st.sidebar.title("🧮 MathOS Tutor")
-st.sidebar.subheader("Student Profile")
-
 existing_students = db.get_student_list()
-selected_student_name = st.sidebar.selectbox("Select Student:",
-                                             ["-- Create New --"] + existing_students if existing_students else [
-                                               "-- Create New --"])
+selected_student_name = st.sidebar.selectbox(
+    "Select Student:",
+    ["-- Create New --"] + existing_students
+    if existing_students
+    else ["-- Create New --"],
+)
 
 if selected_student_name == "-- Create New --":
-  new_name = st.sidebar.text_input("Enter Student Name:")
-  if st.sidebar.button("Start Learning") and new_name.strip():
-    student = db.get_or_create_student(new_name.strip())
-    st.session_state["student"] = student
-    st.rerun()
+    new_name = st.sidebar.text_input("Enter Name:")
+    if (
+        st.sidebar.button("Start Learning", use_container_width=True)
+        and new_name.strip()
+    ):
+        student = db.get_or_create_student(new_name.strip())
+        st.session_state["student"] = student
+        st.session_state.active_workspace = None
+        st.session_state.active_terminologies = []
+        st.rerun()
 else:
-  student = db.get_or_create_student(selected_student_name)
-  st.session_state["student"] = student
+    student = db.get_or_create_student(selected_student_name)
+    st.session_state["student"] = student
+
+# --- SIDEBAR: AI ENGINE CONFIGURATION ---
+st.sidebar.markdown("---")
+with st.sidebar.expander("🤖 AI Engine Settings", expanded=True):
+    ai_mode = st.radio(
+        "Choose Model Backend:",
+        ["Online (Gemini Free)", "Local Model (Ollama)"],
+        index=0 if st.session_state.ai_mode == "Online (Gemini Free)" else 1,
+    )
+    st.session_state.ai_mode = ai_mode
+
+    if ai_mode == "Online (Gemini Free)":
+        # 🔒 Check secrets.toml first for safe key retrieval
+        if "GEMINI_API_KEY" in st.secrets and st.secrets["GEMINI_API_KEY"].strip():
+            st.session_state.gemini_api_key = st.secrets["GEMINI_API_KEY"].strip()
+            st.success("🔒 API Key loaded securely from secrets.toml")
+        else:
+            api_key_input = st.text_input(
+                "Gemini API Key:",
+                value=st.session_state.gemini_api_key,
+                type="password",
+                help="Get a free key at https://aistudio.google.com/ or configure .streamlit/secrets.toml",
+            )
+            st.session_state.gemini_api_key = api_key_input
+    else:
+        st.caption("🌐 Connects to local endpoint: `http://localhost:11434`")
 
 if "student" in st.session_state:
-  current_student = st.session_state["student"]
-  student_id = current_student["id"]
-  student_name = current_student["name"]
-  topic_id = current_student["current_topic_id"]
+    student_id = st.session_state["student"]["id"]
+    student_progress = db.get_all_student_progress(student_id)
 
-  prog = db.get_student_progress(student_id, topic_id)
-  mastery = prog["mastery_score"]
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("📚 Curriculum (L1 to L10)")
 
-  # Evaluate Grade Readiness Status
-  readiness = db.evaluate_readiness(student_id)
+    for main_key, main_val in db.CURRICULUM_TREE.items():
+        with st.sidebar.expander(main_val["title"]):
+            for sub_id, sub_title in main_val["subtopics"].items():
+                count = student_progress.get(sub_id, 0)
+                badge = f" ✅ {count}" if count > 0 else ""
+                button_label = f"📌 {sub_title}{badge}"
 
-  st.sidebar.markdown("---")
-  st.sidebar.write(f"**Current Student:** `{student_name}`")
-  st.sidebar.write(f"**Topic:** {engine.TOPICS.get(topic_id, topic_id)}")
-  st.sidebar.progress(mastery / 100)
-  st.sidebar.caption(f"Topic Mastery: **{mastery}%**")
+                if st.button(button_label, key=sub_id, use_container_width=True):
+                    st.session_state.selected_subtopic = sub_id
+                    st.session_state.active_workspace = None
+                    st.session_state.active_terminologies = []
+                    st.rerun()
 
-  # Render Readiness Milestone Card in Sidebar
-  st.sidebar.markdown("---")
-  st.sidebar.subheader("🎓 Grade Readiness")
-  if readiness["is_unlocked"]:
-    st.sidebar.success(f"🎉 100% Ready for {readiness['target_grade']}")
-  else:
-    st.sidebar.info(f"Progress: {readiness['readiness_percentage']}% toward {readiness['target_grade']}")
+    # --- SIDEBAR: ACCOUNT & DATA MANAGEMENT ---
+    st.sidebar.markdown("---")
+    with st.sidebar.expander("⚙️ Account & Data Management"):
+        if st.button("🧹 Clear Chat History", use_container_width=True):
+            db.clear_student_chat_history(student_id)
+            st.toast("Chat history cleared successfully!", icon="🧹")
+            st.rerun()
 
-  if st.sidebar.button("Clear Chat History"):
-    conn = sqlite3.connect(db.DB_FILE)
-    conn.cursor().execute("DELETE FROM chat_history WHERE student_id = ?", (student_id,))
-    conn.commit()
-    conn.close()
-    st.rerun()
+        st.markdown("---")
+        st.caption("⚠️ Danger Zone")
+        if st.button(
+            "🗑️ Delete Student Profile",
+            type="primary",
+            use_container_width=True,
+        ):
+            db.delete_student_record(student_id)
+            del st.session_state["student"]
+            st.session_state.active_workspace = None
+            st.session_state.active_terminologies = []
+            st.toast("Student profile and data deleted.", icon="🗑️")
+            st.rerun()
 
-  # Main Layout
-  col_vis, col_chat = st.columns([1, 1.2])
+    subtopic_id = st.session_state.selected_subtopic
 
-  with col_vis:
-    # Show Readiness Achievement Banner
-    if readiness["is_unlocked"] or readiness["readiness_percentage"] > 0:
-      skills_str = ", ".join(readiness["mastered_skills"]) if readiness["mastered_skills"] else "In progress..."
-      st.markdown(f"""
-                <div class="readiness-card">
-                    <div class="readiness-title">🏆 Readiness Achievement Unlocked!</div>
-                    <div><b>Student:</b> {student_name}</div>
-                    <div><b>Status:</b> {readiness['readiness_percentage']}% Ready for {readiness['target_grade']}</div>
-                    <div><b>Has mastered:</b> {skills_str}</div>
-                </div>
-            """, unsafe_allow_html=True)
+    main_category_title = "Math Level"
+    subtopic_title = "Math Subtopic"
+    for cat in db.CURRICULUM_TREE.values():
+        if subtopic_id in cat["subtopics"]:
+            main_category_title = cat["title"]
+            subtopic_title = cat["subtopics"][subtopic_id]
+            break
 
-    st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.subheader("📊 Visual Workspace & Concept Board")
-    st.info("Visual diagrams, number lines, and step-by-step breakdowns appear here automatically as you learn.")
+    # --- INITIALIZE FIRST PROBLEM IF SESSION IS EMPTY ---
+    if st.session_state.active_workspace is None:
+        raw_stream = engine.stream_tutor_payload(
+            student_name=st.session_state["student"]["name"],
+            subtopic_title=subtopic_title,
+            user_message=(
+                f"Hello! I am ready to start practicing {subtopic_title}. Please"
+                " present my first problem."
+            ),
+            is_correct_attempt=None,
+            active_workspace=None,
+            chat_history=[],
+            mode=st.session_state.ai_mode,
+            api_key=st.session_state.gemini_api_key,
+        )
+        accumulated_json = "".join([token for token in raw_stream])
+        payload = engine.parse_final_payload(accumulated_json)
 
-    chat_logs = db.load_chat_history(student_id)
-    latest_mermaid = None
-    for msg in reversed(chat_logs):
-      if "```mermaid" in msg["message"]:
-        match = re.search(r"```mermaid(.*?)```", msg["message"], re.DOTALL)
-        if match:
-          latest_mermaid = match.group(1).strip()
-          break
-
-    if latest_mermaid:
-      st.write("**Current Concept Diagram:**")
-      render_mermaid(latest_mermaid)
-    else:
-      render_mermaid("graph LR; A[Elementary Foundations] --> B[Numbers & Line]; B --> C[Fractions]; C --> D[Algebra];")
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-  with col_chat:
-    st.subheader(f"💬 Active Tutor Chat — Welcome, {student_name}!")
-
-    history = db.load_chat_history(student_id)
-
-    if not history:
-      initial_greeting = f"Hi {student_name}! I'm your AI Math Coach. Let's start with a quick check: What is $7 - (-3)$? Take a guess or show your steps!"
-      db.save_chat(student_id, "assistant", initial_greeting)
-      history = db.load_chat_history(student_id)
-
-    chat_container = st.container(height=450)
-    with chat_container:
-      for msg in history:
-        with st.chat_message(msg["role"]):
-          clean_text = re.sub(r"```mermaid.*?```", "*(Visual diagram rendered in left board)*", msg["message"],
-                              flags=re.DOTALL)
-          st.markdown(clean_text)
-
-    if user_input := st.chat_input("Type your answer or ask any math question..."):
-      db.save_chat(student_id, "user", user_input)
-
-      # Simple heuristic check to update student progress
-      updated_prog = db.update_progress(student_id, topic_id, is_correct=True)
-
-      with st.spinner("AI Tutor is thinking..."):
-        ai_response = engine.get_tutor_response(
-          student_name=student_name,
-          topic_id=topic_id,
-          mastery_score=updated_prog["mastery_score"],
-          consecutive_errors=updated_prog["consecutive_errors"],
-          chat_history=history,
-          user_message=user_input
+        ws_init = payload.get("workspace") or {}
+        ws_init["solution_steps"] = []
+        st.session_state.active_workspace = ws_init
+        st.session_state.active_terminologies = payload.get("terminologies", [])
+        db.save_chat(
+            student_id, "assistant", payload.get("chat_response", "Let's begin!")
         )
 
-      db.save_chat(student_id, "assistant", ai_response)
-      st.rerun()
+    # --- ACTIVE TOPIC BANNER ON TOP OF UI ---
+    st.markdown(
+        f"""
+      <div class="focus-banner">
+          <div>
+              <p class="focus-banner-title">🎯 CURRENT FOCUS LEVEL: <b>{main_category_title}</b></p>
+              <p class="focus-banner-topic">📌 {subtopic_title}</p>
+          </div>
+          <div style="text-align: right; color: #94A3B8; font-size: 0.9rem;">
+              Engine: <b style="color: #38BDF8;">{st.session_state.ai_mode}</b> | 
+              Student: <b style="color: #F8FAFC;">{st.session_state['student']['name']}</b>
+          </div>
+      </div>
+      """,
+        unsafe_allow_html=True,
+    )
 
-else:
-  st.title("🧮 MathOS AI Agent Tutor")
-  st.info("Please select or create a student profile in the sidebar to begin.")
+    # --- MAIN THREE-COLUMN LAYOUT ---
+    col_exam, col_terms, col_chat = st.columns([1.2, 1, 1.4])
+
+    ws = st.session_state.active_workspace or {}
+
+    with col_exam:
+        st.subheader("📜 Formal Exam Workspace")
+
+        solution_html = ""
+        steps = ws.get("solution_steps") or []
+        if steps:
+            steps_items = "".join([
+                f"<li style='margin-bottom: 6px; color: #CBD5E1;'>{step}</li>"
+                for step in steps
+            ])
+            solution_html = f"""
+              <hr style="border-color:#334155; margin-top: 15px; margin-bottom: 15px;">
+              <div style="background-color: #0F172A; padding: 12px; border-radius: 8px; border-left: 4px solid #10B981;">
+                  <h5 style="color: #10B981; margin-bottom: 8px;">💡 Step-by-Step Solution</h5>
+                  <ol style="padding-left: 20px; margin: 0;">
+                      {steps_items}
+                  </ol>
+              </div>
+              """
+
+        st.markdown(
+            f"""
+              <div class="exam-paper">
+                  <h4>🎓 {ws.get('title', 'Exam Task')}</h4>
+                  <p style="color:#94A3B8;">{ws.get('instructions', '')}</p>
+                  <hr style="border-color:#334155;">
+                  <div style="font-size:1.2rem;"><b>Problem:</b> {ws.get('color_coded_html', '')}</div>
+                  {solution_html}
+              </div>
+          """,
+            unsafe_allow_html=True,
+        )
+
+    with col_terms:
+        st.subheader("📖 Terminology")
+        for term in st.session_state.active_terminologies:
+            st.markdown(
+                f"""
+                <div class="term-card" style="border-left-color: {term.get('color', '#3B82F6')};">
+                    <span style="color:{term.get('color', '#3B82F6')}; font-weight:bold;">🏷️ {term.get('term', '')}</span>
+                    <p style="margin-top:4px; font-size:0.88rem; color:#CBD5E1;">{term.get('definition', '')}</p>
+                </div>
+            """,
+                unsafe_allow_html=True,
+            )
+
+    with col_chat:
+        st.subheader("💬 AI Tutor Facilitator")
+
+        chat_container = st.container(height=400)
+        history = db.load_chat_history(student_id)
+
+        with chat_container:
+            for msg in history:
+                avatar_icon = "🤖" if msg["role"] == "assistant" else "🧑‍🎓"
+                with st.chat_message(msg["role"], avatar=avatar_icon):
+                    st.markdown(msg["message"])
+
+        btn_col1, btn_col2 = st.columns(2)
+        with btn_col1:
+            if st.button(
+                "💡 Explain Like I'm 5",
+                use_container_width=True,
+                disabled=st.session_state.is_generating,
+            ):
+                st.session_state.pending_user_input = (
+                    "I don't understand, please explain it like I'm 5 years old. Use a"
+                    " completely different analogy or perspective, and do not repeat"
+                    " the previous explanation."
+                )
+                st.rerun()
+
+        with btn_col2:
+            if st.button(
+                "➡️ Proceed / Next Problem",
+                use_container_width=True,
+                disabled=st.session_state.is_generating,
+            ):
+                st.session_state.pending_user_input = (
+                    "OK, I'm ready! Please give me the next problem or move forward."
+                )
+                st.rerun()
+
+    # --- PROCESS USER INPUT & STREAM AI RESPONSE ---
+    chat_input = st.chat_input(
+        "Type your answer or ask for help...",
+        disabled=st.session_state.is_generating,
+    )
+
+    user_input = None
+    if st.session_state.pending_user_input:
+        user_input = st.session_state.pending_user_input
+        st.session_state.pending_user_input = None
+    elif chat_input:
+        user_input = chat_input
+
+    if user_input:
+        st.session_state.is_generating = True
+        clean_input = user_input.strip()
+
+        is_math_attempt = any(
+            c.isdigit() for c in clean_input
+        ) or clean_input.lower() in ["x", "y", "dx", "dt"]
+
+        is_correct = None
+        if is_math_attempt and st.session_state.active_workspace:
+            expected = st.session_state.active_workspace.get("expected_answer", "")
+            if expected:
+                is_correct = verifier.check_student_answer(clean_input, expected)
+                if is_correct:
+                    db.increment_topic_progress(student_id, subtopic_id)
+
+        db.save_chat(student_id, "user", user_input)
+
+        raw_history = db.load_chat_history(student_id)
+        recent_history = raw_history[-4:] if raw_history else []
+
+        with col_chat:
+            with st.chat_message("assistant", avatar="🤖"):
+                response_box = st.empty()
+                full_raw_stream = ""
+
+                token_generator = engine.stream_tutor_payload(
+                    student_name=st.session_state["student"]["name"],
+                    subtopic_title=subtopic_title,
+                    user_message=user_input,
+                    is_correct_attempt=is_correct,
+                    active_workspace=st.session_state.active_workspace,
+                    chat_history=recent_history,
+                    mode=st.session_state.ai_mode,
+                    api_key=st.session_state.gemini_api_key,
+                )
+
+                for token in token_generator:
+                    full_raw_stream += token
+                    response_box.code(full_raw_stream + "▌", language="json")
+
+        payload = engine.parse_final_payload(
+            full_raw_stream, st.session_state.active_workspace
+        )
+
+        # Check for rate limits and render visual timer if flagged
+        if payload.get("rate_limited"):
+            render_cooldown_banner(payload.get("cooldown_seconds", 15))
+
+        if is_correct is True:
+            new_workspace = payload.get("workspace") or {}
+            new_workspace["solution_steps"] = []
+            if (
+                new_workspace.get("expected_answer")
+                == st.session_state.active_workspace.get("expected_answer")
+            ):
+                st.session_state.active_workspace = None
+            else:
+                st.session_state.active_workspace = new_workspace
+        else:
+            if "workspace" in payload and payload["workspace"]:
+                st.session_state.active_workspace = payload["workspace"]
+
+        if "terminologies" in payload and payload["terminologies"]:
+            st.session_state.active_terminologies = payload["terminologies"]
+
+        db.save_chat(
+            student_id,
+            "assistant",
+            payload.get("chat_response", "Let's keep going!"),
+        )
+        st.session_state.is_generating = False
+        st.rerun()

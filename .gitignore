@@ -18,3 +18,7 @@ __pycache__/
 # Operating System Files
 .DS_Store
 Thumbs.db
+
+# .gitignore
+.streamlit/secrets.toml
+.env

@@ -59,7 +59,10 @@ if "pending_user_input" not in st.session_state:
     st.session_state.pending_user_input = None
 
 if "ai_mode" not in st.session_state:
-    st.session_state.ai_mode = "Online (Gemini Free)"
+    st.session_state.ai_mode = "Online (Groq Free)"
+
+if "groq_api_key" not in st.session_state:
+    st.session_state.groq_api_key = ""
 
 if "gemini_api_key" not in st.session_state:
     st.session_state.gemini_api_key = ""
@@ -84,6 +87,20 @@ def render_cooldown_banner(seconds: int = 15):
     progress_bar.empty()
     time.sleep(1)
     status_box.empty()
+
+
+# --- HELPER TO RESOLVE API KEY ---
+def get_active_api_key(mode: str) -> str:
+    """Returns the API key for the selected engine, checking secrets.toml first."""
+    if mode == "Online (Groq Free)":
+        if "GROQ_API_KEY" in st.secrets and st.secrets["GROQ_API_KEY"].strip():
+            return st.secrets["GROQ_API_KEY"].strip()
+        return st.session_state.groq_api_key.strip()
+    elif mode == "Online (Gemini Free)":
+        if "GEMINI_API_KEY" in st.secrets and st.secrets["GEMINI_API_KEY"].strip():
+            return st.secrets["GEMINI_API_KEY"].strip()
+        return st.session_state.gemini_api_key.strip()
+    return ""
 
 
 # --- SIDEBAR: STUDENT SELECTION & SETTINGS ---
@@ -114,26 +131,41 @@ else:
 # --- SIDEBAR: AI ENGINE CONFIGURATION ---
 st.sidebar.markdown("---")
 with st.sidebar.expander("🤖 AI Engine Settings", expanded=True):
+    modes_list = ["Online (Groq Free)", "Online (Gemini Free)", "Local Model (Ollama)"]
+    default_idx = modes_list.index(st.session_state.ai_mode) if st.session_state.ai_mode in modes_list else 0
+
     ai_mode = st.radio(
         "Choose Model Backend:",
-        ["Online (Gemini Free)", "Local Model (Ollama)"],
-        index=0 if st.session_state.ai_mode == "Online (Gemini Free)" else 1,
+        modes_list,
+        index=default_idx,
     )
     st.session_state.ai_mode = ai_mode
 
-    if ai_mode == "Online (Gemini Free)":
-        # 🔒 Check secrets.toml first for safe key retrieval
+    if ai_mode == "Online (Groq Free)":
+        if "GROQ_API_KEY" in st.secrets and st.secrets["GROQ_API_KEY"].strip():
+            st.session_state.groq_api_key = st.secrets["GROQ_API_KEY"].strip()
+            st.success("🔒 Groq API Key loaded from secrets.toml")
+        else:
+            groq_key_input = st.text_input(
+                "Groq API Key:",
+                value=st.session_state.groq_api_key,
+                type="password",
+                help="Get a free key at https://console.groq.com/ or set GROQ_API_KEY in .streamlit/secrets.toml",
+            )
+            st.session_state.groq_api_key = groq_key_input
+
+    elif ai_mode == "Online (Gemini Free)":
         if "GEMINI_API_KEY" in st.secrets and st.secrets["GEMINI_API_KEY"].strip():
             st.session_state.gemini_api_key = st.secrets["GEMINI_API_KEY"].strip()
-            st.success("🔒 API Key loaded securely from secrets.toml")
+            st.success("🔒 Gemini API Key loaded from secrets.toml")
         else:
-            api_key_input = st.text_input(
+            gemini_key_input = st.text_input(
                 "Gemini API Key:",
                 value=st.session_state.gemini_api_key,
                 type="password",
-                help="Get a free key at https://aistudio.google.com/ or configure .streamlit/secrets.toml",
+                help="Get a free key at https://aistudio.google.com/ or set GEMINI_API_KEY in .streamlit/secrets.toml",
             )
-            st.session_state.gemini_api_key = api_key_input
+            st.session_state.gemini_api_key = gemini_key_input
     else:
         st.caption("🌐 Connects to local endpoint: `http://localhost:11434`")
 
@@ -191,6 +223,8 @@ if "student" in st.session_state:
 
     # --- INITIALIZE FIRST PROBLEM IF SESSION IS EMPTY ---
     if st.session_state.active_workspace is None:
+        active_key = get_active_api_key(st.session_state.ai_mode)
+
         raw_stream = engine.stream_tutor_payload(
             student_name=st.session_state["student"]["name"],
             subtopic_title=subtopic_title,
@@ -202,7 +236,7 @@ if "student" in st.session_state:
             active_workspace=None,
             chat_history=[],
             mode=st.session_state.ai_mode,
-            api_key=st.session_state.gemini_api_key,
+            api_key=active_key,
         )
         accumulated_json = "".join([token for token in raw_stream])
         payload = engine.parse_final_payload(accumulated_json)
@@ -354,6 +388,8 @@ if "student" in st.session_state:
         raw_history = db.load_chat_history(student_id)
         recent_history = raw_history[-4:] if raw_history else []
 
+        active_key = get_active_api_key(st.session_state.ai_mode)
+
         with col_chat:
             with st.chat_message("assistant", avatar="🤖"):
                 response_box = st.empty()
@@ -367,7 +403,7 @@ if "student" in st.session_state:
                     active_workspace=st.session_state.active_workspace,
                     chat_history=recent_history,
                     mode=st.session_state.ai_mode,
-                    api_key=st.session_state.gemini_api_key,
+                    api_key=active_key,
                 )
 
                 for token in token_generator:

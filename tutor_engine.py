@@ -5,6 +5,16 @@ import requests
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
+from groq import Groq
+
+
+def get_groq_client(api_key):
+    """Initializes and returns a Groq client with sanitized API key."""
+    clean_key = api_key.strip() if api_key else ""
+    if not clean_key:
+        raise ValueError("Groq API Key is missing or empty.")
+    return Groq(api_key=clean_key)
+
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
 MODEL_NAME = "qwen2-math:7b"
@@ -84,10 +94,10 @@ def stream_tutor_payload(
     is_correct_attempt=None,
     active_workspace=None,
     chat_history=None,
-    mode="Local Model (Ollama)",
+    mode="Online (Groq Free)",
     api_key="",
 ):
-    """Yields raw JSON tokens as they stream from either Ollama or Gemini."""
+    """Yields raw JSON tokens as they stream from Groq, Gemini, or Ollama."""
     context_summary = ""
     if chat_history:
         recent_history = chat_history[-4:]
@@ -115,17 +125,78 @@ Recent Chat History:
 
 Student Input: {user_message}
 
-CRITICAL: Do NOT say "You're welcome!". Generate valid JSON now:"""
+CRITICAL: Do NOT say "You're welcome!". Output strictly valid JSON matching the schema."""
 
-    # --- ONLINE MODEL (GEMINI FREE API) ---
-    if mode == "Online (Gemini Free)":
-        clean_key = api_key.strip()
+    # --- 1. GROQ BACKEND ---
+    if mode == "Online (Groq Free)":
+        if isinstance(api_key, str):
+            api_key = api_key.strip()
+
+        # Check Streamlit secrets if no key passed in function argument
+        if not api_key:
+            try:
+                import streamlit as st
+                api_key = st.secrets.get("GROQ_API_KEY", "").strip()
+            except Exception:
+                pass
+
+        if not api_key:
+            yield json.dumps({
+                "chat_response": "⚠️ Groq API Key missing. Please set GROQ_API_KEY in .streamlit/secrets.toml or pass it in settings.",
+                "workspace": active_workspace,
+                "terminologies": []
+            })
+            return
+
+        try:
+            client = get_groq_client(api_key)
+            groq_system = (
+                f"{SYSTEM_INSTRUCTION}\n\n"
+                "IMPORTANT: You must respond ONLY with a raw, valid JSON object matching the requested schema. "
+                "Do NOT include any conversational text outside of JSON."
+            )
+
+            messages = [
+                {"role": "system", "content": groq_system},
+                {"role": "user", "content": prompt},
+            ]
+
+            response = client.chat.completions.create(
+                model="openai/gpt-oss-120b",
+                messages=messages,
+                response_format={"type": "json_object"},
+                temperature=0.3,
+                stream=True,
+            )
+
+            for chunk in response:
+                if hasattr(chunk, "choices") and chunk.choices:
+                    delta = chunk.choices[0].delta.content
+                    if delta:
+                        yield delta
+
+        except Exception as e:
+            err_str = str(e)
+            if "429" in err_str:
+                yield json.dumps({
+                    "chat_response": "Rate limit reached on Groq. Please pause briefly.",
+                    "rate_limited": True,
+                    "cooldown_seconds": 15,
+                })
+            else:
+                yield json.dumps({
+                    "chat_response": f"Groq API Error: {err_str}",
+                    "workspace": active_workspace,
+                    "terminologies": [],
+                })
+        return
+
+    # --- 2. ONLINE MODEL (GEMINI FREE API) ---
+    elif mode == "Online (Gemini Free)":
+        clean_key = api_key.strip() if isinstance(api_key, str) else ""
         if not clean_key:
             yield json.dumps({
-                "chat_response": (
-                    "⚠️ Please enter a valid Gemini API key in the AI Engine"
-                    " Settings."
-                ),
+                "chat_response": "⚠️ Please enter a valid Gemini API key in the AI Engine Settings.",
                 "workspace": active_workspace,
                 "terminologies": [],
             })
@@ -134,20 +205,19 @@ CRITICAL: Do NOT say "You're welcome!". Generate valid JSON now:"""
         client = genai.Client(api_key=clean_key)
         config = types.GenerateContentConfig(
             response_mime_type="application/json",
-            max_output_tokens=1024,  # Cap output size to conserve TPM limits
+            max_output_tokens=1024,
             temperature=0.3,
         )
 
         max_retries = 3
-        backoff_delay = 2.0  # Seconds to wait upon encountering a 429
+        backoff_delay = 2.0
 
         for attempt in range(max_retries):
             try:
-                # Throttle before firing Gemini call
                 _enforce_rate_limit()
 
                 response = client.models.generate_content_stream(
-                    model="gemini-3.6-flash",
+                    model="gemini-2.5-flash",
                     contents=prompt,
                     config=config,
                 )
@@ -155,17 +225,15 @@ CRITICAL: Do NOT say "You're welcome!". Generate valid JSON now:"""
                 for chunk in response:
                     if chunk.text:
                         yield chunk.text
-                return  # Completed successfully
+                return
 
             except APIError as e:
-                # Check if error code indicates rate limiting (429 / RESOURCE_EXHAUSTED)
                 if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
                     if attempt < max_retries - 1:
                         time.sleep(backoff_delay)
-                        backoff_delay *= 2  # Exponential backoff (2s -> 4s -> 8s)
+                        backoff_delay *= 2
                         continue
 
-                    # Retries exhausted - Return Rate Limit payload with visual banner flag
                     yield json.dumps({
                         "chat_response": "⚠️ Rate limit reached. Please wait for the cooldown before asking another question.",
                         "workspace": active_workspace,
@@ -190,7 +258,7 @@ CRITICAL: Do NOT say "You're welcome!". Generate valid JSON now:"""
                 return
         return
 
-    # --- LOCAL MODEL (OLLAMA DEFAULT) ---
+    # --- 3. LOCAL MODEL (OLLAMA DEFAULT) ---
     try:
         response = requests.post(
             OLLAMA_URL,

@@ -4,12 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="19beabfd-3831-4a2a-b909-850f9367519f" name="Changes" comment="Math Tutor &quot;Streamlit&quot;">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="19beabfd-3831-4a2a-b909-850f9367519f" name="Changes" comment="Math Tutor &quot;Streamlit&quot; - before groq">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/math_verifier.py" beforeDir="false" afterPath="$PROJECT_DIR$/math_verifier.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tutor_engine.py" beforeDir="false" afterPath="$PROJECT_DIR$/tutor_engine.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -139,7 +136,15 @@
       <option name="project" value="LOCAL" />
       <updated>1787307267507</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Math Tutor &quot;Streamlit&quot; - before groq">
+      <option name="closed" value="true" />
+      <created>1787650718579</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1787650718579</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -147,6 +152,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Math Tutor &quot;Streamlit&quot;" />
-    <option name="LAST_COMMIT_MESSAGE" value="Math Tutor &quot;Streamlit&quot;" />
+    <MESSAGE value="Math Tutor &quot;Streamlit&quot; - before groq" />
+    <option name="LAST_COMMIT_MESSAGE" value="Math Tutor &quot;Streamlit&quot; - before groq" />
   </component>
 </project>

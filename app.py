@@ -274,35 +274,38 @@ if "student" in st.session_state:
     with col_exam:
         st.subheader("📜 Formal Exam Workspace")
 
-        solution_html = ""
+        # Outer container card start
+        st.markdown('<div class="exam-paper">', unsafe_allow_html=True)
+
+        # Header & Instructions
+        st.markdown(f"#### 🎓 {ws.get('title', 'Exam Task')}")
+        if ws.get('instructions'):
+            st.markdown(f"<p style='color:#94A3B8;'>{ws.get('instructions')}</p>", unsafe_allow_html=True)
+
+        st.markdown("<hr style='border-color:#334155;'>", unsafe_allow_html=True)
+
+        # Problem statement (Rendered via st.markdown so LaTeX $3 \\frac{1}{2}$ formats properly)
+        st.markdown("**Problem:**")
+        st.markdown(ws.get('color_coded_html', 'No problem active.'))
+
+        # Step-by-step solution steps (Rendered as native Streamlit Markdown to support KaTeX math)
         steps = ws.get("solution_steps") or []
         if steps:
-            steps_items = "".join([
-                f"<li style='margin-bottom: 6px; color: #CBD5E1;'>{step}</li>"
-                for step in steps
-            ])
-            solution_html = f"""
-              <hr style="border-color:#334155; margin-top: 15px; margin-bottom: 15px;">
-              <div style="background-color: #0F172A; padding: 12px; border-radius: 8px; border-left: 4px solid #10B981;">
-                  <h5 style="color: #10B981; margin-bottom: 8px;">💡 Step-by-Step Solution</h5>
-                  <ol style="padding-left: 20px; margin: 0;">
-                      {steps_items}
-                  </ol>
-              </div>
-              """
+            st.markdown(
+                """
+                <hr style="border-color:#334155; margin-top: 15px; margin-bottom: 15px;">
+                <div style="background-color: #0F172A; padding: 12px; border-radius: 8px; border-left: 4px solid #10B981; margin-bottom: 10px;">
+                    <h5 style="color: #10B981; margin-top: 0; margin-bottom: 8px;">💡 Step-by-Step Solution</h5>
+                """,
+                unsafe_allow_html=True,
+            )
+            for idx, step in enumerate(steps, 1):
+                st.markdown(f"**Step {idx}:** {step}")
 
-        st.markdown(
-            f"""
-              <div class="exam-paper">
-                  <h4>🎓 {ws.get('title', 'Exam Task')}</h4>
-                  <p style="color:#94A3B8;">{ws.get('instructions', '')}</p>
-                  <hr style="border-color:#334155;">
-                  <div style="font-size:1.2rem;"><b>Problem:</b> {ws.get('color_coded_html', '')}</div>
-                  {solution_html}
-              </div>
-          """,
-            unsafe_allow_html=True,
-        )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # Outer container card end
+        st.markdown("</div>", unsafe_allow_html=True)
 
     with col_terms:
         st.subheader("📖 Terminology")

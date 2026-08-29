@@ -85,50 +85,60 @@ def _clean_json_response(raw_text):
 
 
 def sanitize_math_output(json_data: dict) -> dict:
-    """Fixes Streamlit KaTeX rendering errors for mixed numbers and fractions."""
+    """Fixes Streamlit KaTeX and HTML rendering errors for mixed numbers and fractions."""
     if not isinstance(json_data, dict):
         return json_data
 
-    def clean_text(text):
+    def clean_markdown_text(text):
         if not isinstance(text, str):
             return text
 
         # 1. Fix Python control character / form-feed corruption (\x0c or \f -> \frac)
         text = text.replace('\x0c', r'\frac').replace('\f', r'\frac')
 
-        # 2. Convert raw digit attached to frac (e.g. 3\frac or 3\\frac) into space + frac
-        text = re.sub(r'(\d)\s*\\+frac', r'\1 \\frac', text)
+        # 2. Collapse double backslashes before 'frac' into a single backslash for raw LaTeX
+        text = re.sub(r'\\+frac', r'\\frac', text)
 
-        # 3. Streamlit Fix: Double-escape backslashes inside single dollar math ($3 \frac{1}{2}$ -> $3 \\frac{1}{2}$)
-        # This prevents Streamlit's Markdown engine from eating the backslash before KaTeX parses it.
-        def fix_inline_dollars(match):
-            content = match.group(1)
-            content = content.replace(r'\frac', r'\\frac')
-            return f"${content}$"
+        # 3. Ensure a space between any digit and \frac (e.g. "3\frac" -> "3 \frac")
+        text = re.sub(r'(\d)\s*\\frac', r'\1 \\frac', text)
 
-        text = re.sub(r'\$([^$]+)\$', fix_inline_dollars, text)
+        return text
+
+    def clean_html_text(text):
+        if not isinstance(text, str):
+            return text
+
+        # Clean standard backslashes first
+        text = clean_markdown_text(text)
+
+        # HTML can't process $3 \frac{1}{2}$ automatically.
+        # Convert LaTeX fractions in HTML fields to standard fraction format (e.g., 3 1/2 or <sup>1</sup>/<sub>2</sub>)
+        text = re.sub(r'\$(\d+)\s*\\frac\{(\d+)\}\{(\d+)\}\$', r'\1 <sup>\2</sup>&frasl;<sub>\3</sub>', text)
+        text = re.sub(r'\$\\frac\{(\d+)\}\{(\d+)\}\$', r'<sup>\1</sup>&frasl;<sub>\2</sub>', text)
+        text = re.sub(r'(\d+)\s*\\frac\{(\d+)\}\{(\d+)\}', r'\1 <sup>\2</sup>&frasl;<sub>\3</sub>', text)
+        text = re.sub(r'\\frac\{(\d+)\}\{(\d+)\}', r'<sup>\1</sup>&frasl;<sub>\2</sub>', text)
 
         return text
 
     # Clean chat response
     if "chat_response" in json_data:
-        json_data["chat_response"] = clean_text(json_data["chat_response"])
+        json_data["chat_response"] = clean_markdown_text(json_data["chat_response"])
 
-    # Clean workspace fields
+    # Clean workspace fields (HTML field uses clean_html_text)
     if "workspace" in json_data and isinstance(json_data["workspace"], dict):
         ws = json_data["workspace"]
         if "instructions" in ws:
-            ws["instructions"] = clean_text(ws["instructions"])
+            ws["instructions"] = clean_markdown_text(ws["instructions"])
         if "color_coded_html" in ws:
-            ws["color_coded_html"] = clean_text(ws["color_coded_html"])
+            ws["color_coded_html"] = clean_html_text(ws["color_coded_html"])
         if "solution_steps" in ws and isinstance(ws["solution_steps"], list):
-            ws["solution_steps"] = [clean_text(step) for step in ws["solution_steps"]]
+            ws["solution_steps"] = [clean_markdown_text(step) for step in ws["solution_steps"]]
 
     # Clean terminology definitions
     if "terminologies" in json_data and isinstance(json_data["terminologies"], list):
         for term in json_data["terminologies"]:
             if isinstance(term, dict) and "definition" in term:
-                term["definition"] = clean_text(term["definition"])
+                term["definition"] = clean_markdown_text(term["definition"])
 
     return json_data
 

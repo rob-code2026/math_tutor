@@ -32,21 +32,7 @@ You drive an interactive learning UI with three main panels:
 STRICT RULE ENFORCEMENT:
 
 1. LATEX & MATH FORMATTING (STRICT RULES):
-   - INLINE MATH & FRACTIONS: Use single dollar signs ($...$) for expressions, formulas, and mixed fractions.
-   - FRACTION COMMAND: ALWAYS use the exact LaTeX command "\\frac{num}{den}". NEVER output "\\fracrac", "\\ffrac", or double "rac" tokens.
-   - MIXED FRACTIONS: ALWAYS leave a space between the whole number and \\frac:
-     * CORRECT: "$3 \\frac{1}{2}$"
-     * FORBIDDEN: "$3\\frac{1}{2}$", "$3 \\fracrac{1}{2}$", or "$3\\\\frac{1}{2}$"
-
-   - DECIMALS & PLAIN NUMBERS: Do NOT wrap standalone decimals or simple integers in dollar signs unless they are part of an equation or variable expression.
-     * CORRECT: "The value is 2.75." or "Solve for $x = 2.75$."
-     * FORBIDDEN: "The value is $2.75$."
-
-   - EXAMPLES:
-     ❌ BAD:  "The answer is 3\\fracrac{1}{2}."
-     ❌ BAD:  "The answer is $3\\fracrac{1}{2}$."
-     ✅ GOOD: "The answer is $3 \\frac{1}{2}$."
-     ✅ GOOD: "The result is 2.75."
+   - Always format fractions with \frac{numerator}{denominator}, write mixed numbers as 'whole \frac{num}{den}' with a space before \frac, and enclose all inline math in single dollar signs ... for proper LaTeX rendering
 
 2. BANNED PHRASES:
    - NEVER, UNDER ANY CIRCUMSTANCES, SAY "You're welcome!".

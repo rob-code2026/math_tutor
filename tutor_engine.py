@@ -85,20 +85,29 @@ def _clean_json_response(raw_text):
 
 
 def sanitize_math_output(json_data: dict) -> dict:
-    """Fixes LaTeX rendering issues including escaped form-feeds and missing spaces in mixed numbers."""
+    """Fixes Streamlit KaTeX rendering errors for mixed numbers and fractions."""
     if not isinstance(json_data, dict):
         return json_data
 
     def clean_text(text):
-        if isinstance(text, str):
-            # 1. Fix Python's form-feed conversion (\f -> \frac)
-            text = text.replace('\frac', r'\frac').replace('\f', r'\f')
-
-            # 2. Convert raw '3\frac' or '3\\frac' to '3 \frac'
-            text = re.sub(r'(\d)\s*\\*frac', r'\1 \\frac', text)
-
-            # 3. Ensure proper $ wrapping around raw fractions if untagged
+        if not isinstance(text, str):
             return text
+
+        # 1. Fix Python control character / form-feed corruption (\x0c or \f -> \frac)
+        text = text.replace('\x0c', r'\frac').replace('\f', r'\frac')
+
+        # 2. Convert raw digit attached to frac (e.g. 3\frac or 3\\frac) into space + frac
+        text = re.sub(r'(\d)\s*\\+frac', r'\1 \\frac', text)
+
+        # 3. Streamlit Fix: Double-escape backslashes inside single dollar math ($3 \frac{1}{2}$ -> $3 \\frac{1}{2}$)
+        # This prevents Streamlit's Markdown engine from eating the backslash before KaTeX parses it.
+        def fix_inline_dollars(match):
+            content = match.group(1)
+            content = content.replace(r'\frac', r'\\frac')
+            return f"${content}$"
+
+        text = re.sub(r'\$([^$]+)\$', fix_inline_dollars, text)
+
         return text
 
     # Clean chat response

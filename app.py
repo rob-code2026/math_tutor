@@ -412,8 +412,12 @@ if "student" in st.session_state:
 
                 for token in token_generator:
                     full_raw_stream += token
-                    # Clean the stream on the fly so the user never sees \fracrac while typing
-                    display_stream = full_raw_stream.replace("\\fracrac", "\\frac")
+                    # Clean the stream on the fly so the user never sees raw broken tokens while typing
+                    display_stream = (
+                        full_raw_stream.replace("\\fracrac", "\\frac")
+                        .replace("\\ffrac", "\\frac")
+                        .replace("\x0c", "\\frac")
+                    )
                     response_box.code(display_stream + "▌", language="json")
 
         payload = engine.parse_final_payload(

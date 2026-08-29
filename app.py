@@ -14,26 +14,8 @@ st.markdown(
   <style>
   .stApp { background-color: #0F172A; color: #F8FAFC; }
   div[data-testid="stSidebar"] { background-color: #1E293B !important; }
-  .exam-paper { 
-      background-color: #1E293B; 
-      padding: 20px; 
-      border-radius: 12px; 
-      border: 2px solid #334155; 
-  }
-  .solution-box {
-      background-color: #0F172A;
-      padding: 16px;
-      border-radius: 8px;
-      border-left: 4px solid #10B981;
-      margin-top: 15px;
-  }
-  .term-card { 
-      background-color: #1E293B; 
-      border-radius: 8px; 
-      padding: 12px; 
-      margin-bottom: 10px; 
-      border-left: 5px solid #3B82F6; 
-  }
+  .exam-paper { background-color: #1E293B; padding: 20px; border-radius: 12px; border: 2px solid #334155; }
+  .term-card { background-color: #1E293B; border-radius: 8px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #3B82F6; }
 
   .focus-banner {
       background: linear-gradient(90deg, #1E293B 0%, #0F172A 100%);
@@ -150,11 +132,7 @@ else:
 st.sidebar.markdown("---")
 with st.sidebar.expander("🤖 AI Engine Settings", expanded=True):
     modes_list = ["Online (Groq Free)", "Online (Gemini Free)", "Local Model (Ollama)"]
-    default_idx = (
-        modes_list.index(st.session_state.ai_mode)
-        if st.session_state.ai_mode in modes_list
-        else 0
-    )
+    default_idx = modes_list.index(st.session_state.ai_mode) if st.session_state.ai_mode in modes_list else 0
 
     ai_mode = st.radio(
         "Choose Model Backend:",
@@ -296,37 +274,35 @@ if "student" in st.session_state:
     with col_exam:
         st.subheader("📜 Formal Exam Workspace")
 
-        with st.container():
-            # Card Container Wrapper
-            st.markdown(
-                f"""
-                <div class="exam-paper">
-                    <h4 style="margin-top:0;">🎓 {ws.get('title', 'Exam Task')}</h4>
-                    <p style="color:#94A3B8; margin-bottom:12px;">{ws.get('instructions', '')}</p>
-                    <hr style="border-color:#334155; margin-bottom:12px;">
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+        solution_html = ""
+        steps = ws.get("solution_steps") or []
+        if steps:
+            steps_items = "".join([
+                f"<li style='margin-bottom: 6px; color: #CBD5E1;'>{step}</li>"
+                for step in steps
+            ])
+            solution_html = f"""
+              <hr style="border-color:#334155; margin-top: 15px; margin-bottom: 15px;">
+              <div style="background-color: #0F172A; padding: 12px; border-radius: 8px; border-left: 4px solid #10B981;">
+                  <h5 style="color: #10B981; margin-bottom: 8px;">💡 Step-by-Step Solution</h5>
+                  <ol style="padding-left: 20px; margin: 0;">
+                      {steps_items}
+                  </ol>
+              </div>
+              """
 
-            # Problem Heading and Text (st.markdown converts KaTeX $3 \frac{1}{2}$ correctly)
-            st.markdown("**Problem:**")
-            st.markdown(ws.get('color_coded_html', 'No problem active.'))
-
-            # Render Solution Steps as native Streamlit Markdown
-            steps = ws.get("solution_steps") or []
-            if steps:
-                st.markdown(
-                    """
-                    <hr style="border-color:#334155; margin-top: 15px; margin-bottom: 15px;">
-                    <div class="solution-box">
-                        <h5 style="color: #10B981; margin-top: 0; margin-bottom: 8px;">💡 Step-by-Step Solution</h5>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                for idx, step in enumerate(steps, 1):
-                    st.markdown(f"**Step {idx}:** {step}")
+        st.markdown(
+            f"""
+              <div class="exam-paper">
+                  <h4>🎓 {ws.get('title', 'Exam Task')}</h4>
+                  <p style="color:#94A3B8;">{ws.get('instructions', '')}</p>
+                  <hr style="border-color:#334155;">
+                  <div style="font-size:1.2rem;"><b>Problem:</b> {ws.get('color_coded_html', '')}</div>
+                  {solution_html}
+              </div>
+          """,
+            unsafe_allow_html=True,
+        )
 
     with col_terms:
         st.subheader("📖 Terminology")

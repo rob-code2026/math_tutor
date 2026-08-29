@@ -30,17 +30,24 @@ You drive an interactive learning UI with three main panels:
 3. Chat Facilitator (Your conversation with the student)
 
 STRICT RULE ENFORCEMENT:
-1. BANNED PHRASES:
+
+1. LATEX & MATH FORMATTING (CRITICAL):
+   - Surround inline math with single dollar signs (e.g., $3 \\frac{1}{4}$) and block math with double dollar signs ($$...$$).
+   - MIXED NUMBERS: ALWAYS place a space or LaTeX spacing between a whole number and \\frac. 
+     * CORRECT: "$3 \\frac{1}{4}$" or "$3\\,\\frac{1}{4}$"
+     * FORBIDDEN: "$3\\frac{1}{4}$" (NEVER attach digits directly to \\frac).
+
+2. BANNED PHRASES:
    - NEVER, UNDER ANY CIRCUMSTANCES, SAY "You're welcome!".
    - NEVER say "Here's your first problem on..." unless 'Recent Chat History' is completely empty.
 
-2. WHEN STUDENT SOLVES A PROBLEM CORRECTLY (`Verification Status on Previous Attempt: True`):
+3. WHEN STUDENT SOLVES A PROBLEM CORRECTLY (`Verification Status on Previous Attempt: True`):
    - Acknowledge their correct answer directly in 'chat_response'.
    - You MUST generate a BRAND NEW problem in 'workspace' that is DIFFERENT from the old problem.
    - Do NOT repeat equations or numbers from previous turns.
    - Set 'solution_steps' in 'workspace' to null or an empty list for the new problem.
 
-3. WHEN STUDENT IS STUCK, WRONG (`Verification Status on Previous Attempt: False`), OR ASKS FOR THE SOLUTION/HINT:
+4. WHEN STUDENT IS STUCK, WRONG (`Verification Status on Previous Attempt: False`), OR ASKS FOR THE SOLUTION/HINT:
    - Provide a helpful response in 'chat_response'.
    - Keep the exact same active problem in 'workspace'.
    - Populate 'solution_steps' in 'workspace' with clear, ordered step-by-step explanations on how to solve the problem.
@@ -75,6 +82,40 @@ def _clean_json_response(raw_text):
     cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.MULTILINE)
     cleaned = re.sub(r"\s*```$", "", cleaned, flags=re.MULTILINE)
     return cleaned.strip()
+
+
+def sanitize_math_output(json_data: dict) -> dict:
+    """Fixes mixed fraction LaTeX formatting issues (e.g., converts '3\\frac' or '3\\frac' into '3 \\frac')."""
+    if not isinstance(json_data, dict):
+        return json_data
+
+    def clean_text(text):
+        if isinstance(text, str):
+            # Inserts a space between any digit and \frac or \\frac
+            return re.sub(r'(\d)\s*\\+frac', r'\1 \\frac', text)
+        return text
+
+    # Clean chat response
+    if "chat_response" in json_data:
+        json_data["chat_response"] = clean_text(json_data["chat_response"])
+
+    # Clean workspace fields
+    if "workspace" in json_data and isinstance(json_data["workspace"], dict):
+        ws = json_data["workspace"]
+        if "instructions" in ws:
+            ws["instructions"] = clean_text(ws["instructions"])
+        if "color_coded_html" in ws:
+            ws["color_coded_html"] = clean_text(ws["color_coded_html"])
+        if "solution_steps" in ws and isinstance(ws["solution_steps"], list):
+            ws["solution_steps"] = [clean_text(step) for step in ws["solution_steps"]]
+
+    # Clean terminology definitions
+    if "terminologies" in json_data and isinstance(json_data["terminologies"], list):
+        for term in json_data["terminologies"]:
+            if isinstance(term, dict) and "definition" in term:
+                term["definition"] = clean_text(term["definition"])
+
+    return json_data
 
 
 def _enforce_rate_limit():
@@ -332,12 +373,13 @@ CRITICAL: Do NOT say "You're welcome!". Output strictly valid JSON matching the 
 
 
 def parse_final_payload(full_raw_response, fallback_workspace=None):
-    """Parses the accumulated streamed text into a validated dictionary."""
+    """Parses accumulated streamed text into a validated dictionary and sanitizes LaTeX math formatting."""
     cleaned = _clean_json_response(full_raw_response)
     try:
-        return json.loads(cleaned)
+        parsed_data = json.loads(cleaned)
+        return sanitize_math_output(parsed_data)
     except Exception:
-        return {
+        fallback_payload = {
             "chat_response": cleaned,
             "workspace": fallback_workspace
             or {
@@ -348,3 +390,4 @@ def parse_final_payload(full_raw_response, fallback_workspace=None):
             },
             "terminologies": [],
         }
+        return sanitize_math_output(fallback_payload)

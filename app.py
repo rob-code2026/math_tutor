@@ -307,15 +307,21 @@ if "student" in st.session_state:
     with col_terms:
         st.subheader("📖 Terminology")
         for term in st.session_state.active_terminologies:
+            color = term.get('color', '#3B82F6')
+            # 1. Render card header container with left border styling
             st.markdown(
                 f"""
-                <div class="term-card" style="border-left-color: {term.get('color', '#3B82F6')};">
-                    <span style="color:{term.get('color', '#3B82F6')}; font-weight:bold;">🏷️ {term.get('term', '')}</span>
-                    <p style="margin-top:4px; font-size:0.88rem; color:#CBD5E1;">{term.get('definition', '')}</p>
+                <div class="term-card" style="border-left-color: {color}; margin-bottom: 4px; padding-bottom: 4px;">
+                    <span style="color:{color}; font-weight:bold;">🏷️ {term.get('term', '')}</span>
                 </div>
-            """,
+                """,
                 unsafe_allow_html=True,
             )
+            # 2. Render definition as native Markdown to allow LaTeX ($...$) parsing
+            definition = term.get('definition', '')
+            if definition:
+                st.markdown(f"<span style='color:#CBD5E1; font-size:0.88rem;'>{definition}</span>",
+                            unsafe_allow_html=True)
 
     with col_chat:
         st.subheader("💬 AI Tutor Facilitator")

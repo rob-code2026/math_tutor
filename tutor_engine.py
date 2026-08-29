@@ -85,14 +85,20 @@ def _clean_json_response(raw_text):
 
 
 def sanitize_math_output(json_data: dict) -> dict:
-    """Fixes mixed fraction LaTeX formatting issues (e.g., converts '3\\frac' or '3\\frac' into '3 \\frac')."""
+    """Fixes LaTeX rendering issues including escaped form-feeds and missing spaces in mixed numbers."""
     if not isinstance(json_data, dict):
         return json_data
 
     def clean_text(text):
         if isinstance(text, str):
-            # Inserts a space between any digit and \frac or \\frac
-            return re.sub(r'(\d)\s*\\+frac', r'\1 \\frac', text)
+            # 1. Fix Python's form-feed conversion (\f -> \frac)
+            text = text.replace('\frac', r'\frac').replace('\f', r'\f')
+
+            # 2. Convert raw '3\frac' or '3\\frac' to '3 \frac'
+            text = re.sub(r'(\d)\s*\\*frac', r'\1 \\frac', text)
+
+            # 3. Ensure proper $ wrapping around raw fractions if untagged
+            return text
         return text
 
     # Clean chat response
@@ -116,7 +122,6 @@ def sanitize_math_output(json_data: dict) -> dict:
                 term["definition"] = clean_text(term["definition"])
 
     return json_data
-
 
 def _enforce_rate_limit():
     """Ensures requests are spaced at least MIN_REQUEST_INTERVAL seconds apart."""

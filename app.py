@@ -326,8 +326,8 @@ if "student" in st.session_state:
                 disabled=st.session_state.is_generating,
             ):
                 st.session_state.pending_user_input = (
-                    "I don't understand, please explain it like I'm 5 years old. Use a"
-                    " completely different analogy or perspective."
+                    "Please explain this problem like I am 5 years old. "
+                    "Use short, simple bullet points and completely different analogy or perspective."
                 )
                 st.rerun()
 

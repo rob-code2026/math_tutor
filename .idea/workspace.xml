@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="19beabfd-3831-4a2a-b909-850f9367519f" name="Changes" comment="Math Tutor &quot;Streamlit&quot; - before groq">
+    <list default="true" id="23ca011c-ada1-4492-95f5-27ddd94b5093" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tutor_engine.py" beforeDir="false" afterPath="$PROJECT_DIR$/tutor_engine.py" afterDir="false" />
@@ -14,66 +16,39 @@
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
-  <component name="FileTemplateManagerImpl">
-    <option name="RECENT_TEMPLATES">
-      <list>
-        <option value="Python Script" />
-      </list>
-    </option>
-  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="HighlightingSettingsPerFile">
-    <setting file="file://$PROJECT_DIR$/app.py" root0="SKIP_INSPECTION" />
-    <setting file="file://$PROJECT_DIR$/database.py" root0="SKIP_INSPECTION" />
-    <setting file="file://$PROJECT_DIR$/math_verifier.py" root0="SKIP_INSPECTION" />
-    <setting file="file://$PROJECT_DIR$/tutor_engine.py" root0="SKIP_INSPECTION" />
-  </component>
   <component name="ProjectColorInfo">{
-  &quot;associatedIndex&quot;: 2,
-  &quot;fromUser&quot;: false
+  &quot;associatedIndex&quot;: 2
 }</component>
-  <component name="ProjectId" id="3IDMZgoha3F990P11QW2qpJuh3l" />
+  <component name="ProjectId" id="3IcTfaI8ngUEO3M4R9jQHk0tuyr" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;Python.Math Tutor App.executor&quot;: &quot;Run&quot;,
-    &quot;Python.to view math tutor_db.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/wealt/PycharmProjects/tutor&quot;
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/wealt/PycharmProjects/eng_tutor&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   }
 }</component>
-  <component name="RecentsManager">
-    <key name="CopyFile.RECENT_KEYS">
-      <recent name="C:\Users\wealt\PycharmProjects\tutor" />
-    </key>
-  </component>
-  <component name="RunManager" selected="Python.Math Tutor App">
-    <configuration name="Math Tutor App" type="PythonConfigurationType" factoryName="Python">
-      <module name="tutor" />
-      <option name="ENV_FILES" value="" />
+  <component name="RunManager">
+    <configuration name="math_tutor" type="PythonConfigurationType" factoryName="Python">
+      <module name="math_tutor" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="SDK_NAME" value="~\PycharmProjects\tutor\.venv" />
-      <option name="WORKING_DIRECTORY" value="C:\Users\wealt\PycharmProjects\tutor" />
+      <option name="SDK_NAME" value="Python 3.12 (math_tutor)" />
+      <option name="WORKING_DIRECTORY" value="C:\Users\wealt\PycharmProjects\math_tutor" />
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="DEBUG_JUST_MY_CODE" value="false" />
-      <option name="RUN_TOOL" value="" />
       <option name="SCRIPT_NAME" value="streamlit" />
       <option name="PARAMETERS" value="run app.py" />
       <option name="SHOW_COMMAND_LINE" value="false" />
@@ -83,76 +58,16 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="to view math tutor_db" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="tutor" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="DEBUG_JUST_MY_CODE" value="false" />
-      <option name="RUN_TOOL" value="" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/to view math tutor_db.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <recent_temporary>
-      <list>
-        <item itemvalue="Python.to view math tutor_db" />
-      </list>
-    </recent_temporary>
   </component>
-  <component name="SharedIndexes">
-    <attachedChunks>
-      <set>
-        <option value="bundled-python-sdk-821f704e66d9-5bd6d13a2a75-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-262.9437.214" />
-      </set>
-    </attachedChunks>
-  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="19beabfd-3831-4a2a-b909-850f9367519f" name="Changes" comment="" />
-      <created>1787294742922</created>
+      <changelist id="23ca011c-ada1-4492-95f5-27ddd94b5093" name="Changes" comment="" />
+      <created>1788062960905</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
-      <updated>1787294742922</updated>
+      <updated>1788062960905</updated>
     </task>
-    <task id="LOCAL-00001" summary="Math Tutor &quot;Streamlit&quot;">
-      <option name="closed" value="true" />
-      <created>1787307267507</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1787307267507</updated>
-    </task>
-    <task id="LOCAL-00002" summary="Math Tutor &quot;Streamlit&quot; - before groq">
-      <option name="closed" value="true" />
-      <created>1787650718579</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1787650718579</updated>
-    </task>
-    <option name="localTasksCounter" value="3" />
     <servers />
-  </component>
-  <component name="TypeScriptGeneratedFilesManager">
-    <option name="version" value="3" />
-  </component>
-  <component name="VcsManagerConfiguration">
-    <MESSAGE value="Math Tutor &quot;Streamlit&quot;" />
-    <MESSAGE value="Math Tutor &quot;Streamlit&quot; - before groq" />
-    <option name="LAST_COMMIT_MESSAGE" value="Math Tutor &quot;Streamlit&quot; - before groq" />
   </component>
 </project>

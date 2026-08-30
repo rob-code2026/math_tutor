@@ -4,6 +4,7 @@ import database as db
 import math_verifier as verifier
 import streamlit as st
 import tutor_engine as engine
+import re
 
 st.set_page_config(page_title="MathOS AI Tutor", page_icon="🧮", layout="wide")
 db.init_db()
@@ -14,7 +15,7 @@ st.markdown(
   <style>
   .stApp { background-color: #0F172A; color: #F8FAFC; }
   div[data-testid="stSidebar"] { background-color: #1E293B !important; }
-  .exam-paper { background-color: #1E293B; padding: 20px; border-radius: 12px; border: 2px solid #334155; }
+  .exam-container { background-color: #1E293B; padding: 20px; border-radius: 12px; border: 2px solid #334155; margin-bottom: 15px; }
   .term-card { background-color: #1E293B; border-radius: 8px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #3B82F6; }
 
   .focus-banner {
@@ -89,7 +90,6 @@ def render_cooldown_banner(seconds: int = 15):
     status_box.empty()
 
 
-# --- HELPER TO RESOLVE API KEY ---
 def get_active_api_key(mode: str) -> str:
     """Returns the API key for the selected engine, checking secrets.toml first."""
     if mode == "Online (Groq Free)":
@@ -225,21 +225,22 @@ if "student" in st.session_state:
     if st.session_state.active_workspace is None:
         active_key = get_active_api_key(st.session_state.ai_mode)
 
-        raw_stream = engine.stream_tutor_payload(
-            student_name=st.session_state["student"]["name"],
-            subtopic_title=subtopic_title,
-            user_message=(
-                f"Hello! I am ready to start practicing {subtopic_title}. Please"
-                " present my first problem."
-            ),
-            is_correct_attempt=None,
-            active_workspace=None,
-            chat_history=[],
-            mode=st.session_state.ai_mode,
-            api_key=active_key,
-        )
-        accumulated_json = "".join([token for token in raw_stream])
-        payload = engine.parse_final_payload(accumulated_json)
+        with st.spinner("Generating your initial math task..."):
+            raw_stream = engine.stream_tutor_payload(
+                student_name=st.session_state["student"]["name"],
+                subtopic_title=subtopic_title,
+                user_message=(
+                    f"Hello! I am ready to start practicing {subtopic_title}. Please"
+                    " present my first problem."
+                ),
+                is_correct_attempt=None,
+                active_workspace=None,
+                chat_history=[],
+                mode=st.session_state.ai_mode,
+                api_key=active_key,
+            )
+            accumulated_json = "".join([token for token in raw_stream])
+            payload = engine.parse_final_payload(accumulated_json)
 
         ws_init = payload.get("workspace") or {}
         ws_init["solution_steps"] = []
@@ -274,35 +275,20 @@ if "student" in st.session_state:
     with col_exam:
         st.subheader("📜 Formal Exam Workspace")
 
-        solution_html = ""
+        # Native Markdown rendering ensures KaTeX ($...$) renders cleanly!
+        st.markdown(f"#### 🎓 {ws.get('title', 'Exam Task')}")
+        st.caption(ws.get('instructions', ''))
+        st.divider()
+
+        problem_text = ws.get('color_coded_html', '')
+        st.markdown(f"**Problem:** {problem_text}")
+
         steps = ws.get("solution_steps") or []
         if steps:
-            steps_items = "".join([
-                f"<li style='margin-bottom: 6px; color: #CBD5E1;'>{step}</li>"
-                for step in steps
-            ])
-            solution_html = f"""
-              <hr style="border-color:#334155; margin-top: 15px; margin-bottom: 15px;">
-              <div style="background-color: #0F172A; padding: 12px; border-radius: 8px; border-left: 4px solid #10B981;">
-                  <h5 style="color: #10B981; margin-bottom: 8px;">💡 Step-by-Step Solution</h5>
-                  <ol style="padding-left: 20px; margin: 0;">
-                      {steps_items}
-                  </ol>
-              </div>
-              """
-
-        st.markdown(
-            f"""
-              <div class="exam-paper">
-                  <h4>🎓 {ws.get('title', 'Exam Task')}</h4>
-                  <p style="color:#94A3B8;">{ws.get('instructions', '')}</p>
-                  <hr style="border-color:#334155;">
-                  <div style="font-size:1.2rem;"><b>Problem:</b> {ws.get('color_coded_html', '')}</div>
-                  {solution_html}
-              </div>
-          """,
-            unsafe_allow_html=True,
-        )
+            st.divider()
+            st.markdown("##### 💡 Step-by-Step Solution")
+            for step in steps:
+                st.markdown(f"- {step}")
 
     with col_terms:
         st.subheader("📖 Terminology")
@@ -318,7 +304,6 @@ if "student" in st.session_state:
             )
             definition = term.get('definition', '')
             if definition:
-                # Render using native st.markdown so LaTeX ($...$) renders correctly
                 st.markdown(definition)
 
     with col_chat:
@@ -342,8 +327,7 @@ if "student" in st.session_state:
             ):
                 st.session_state.pending_user_input = (
                     "I don't understand, please explain it like I'm 5 years old. Use a"
-                    " completely different analogy or perspective, and do not repeat"
-                    " the previous explanation."
+                    " completely different analogy or perspective."
                 )
                 st.rerun()
 
@@ -375,9 +359,10 @@ if "student" in st.session_state:
         st.session_state.is_generating = True
         clean_input = user_input.strip()
 
-        is_math_attempt = any(
-            c.isdigit() for c in clean_input
-        ) or clean_input.lower() in ["x", "y", "dx", "dt"]
+        # Improved verification check to ignore action phrases like "explain like I'm 5"
+        is_math_attempt = False
+        if not clean_input.lower().startswith("i don't understand") and not clean_input.lower().startswith("ok, i'm ready"):
+            is_math_attempt = any(c.isdigit() for c in clean_input) or clean_input.lower() in ["x", "y", "dx", "dt"]
 
         is_correct = None
         if is_math_attempt and st.session_state.active_workspace:
@@ -412,19 +397,17 @@ if "student" in st.session_state:
 
                 for token in token_generator:
                     full_raw_stream += token
-                    # Clean the stream on the fly so the user never sees raw broken tokens while typing
-                    display_stream = (
-                        full_raw_stream.replace("\\fracrac", "\\frac")
-                        .replace("\\ffrac", "\\frac")
-                        .replace("\x0c", "\\frac")
-                    )
-                    response_box.code(display_stream + "▌", language="json")
+                    # Extract chat response from raw JSON while streaming for clean display
+                    match = re.search(r'"chat_response"\s*:\s*"([^"]*)', full_raw_stream)
+                    if match:
+                        response_box.markdown(match.group(1) + "▌")
+                    else:
+                        response_box.markdown("Thinking... ▌")
 
         payload = engine.parse_final_payload(
             full_raw_stream, st.session_state.active_workspace
         )
 
-        # Check for rate limits and render visual timer if flagged
         if payload.get("rate_limited"):
             render_cooldown_banner(payload.get("cooldown_seconds", 15))
 

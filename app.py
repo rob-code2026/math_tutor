@@ -47,23 +47,8 @@ db.init_db()
 # --- CUSTOM CSS ---
 st.markdown(
     """
+  
   <style>
-  /* 1. HIDE TOP HEADER, GITHUB ICON & FORK BUTTON */
-  header[data-testid="stHeader"] {
-      visibility: hidden;
-      height: 0%;
-  }
-  
-  /* 2. HIDE STREAMLIT TOP RIGHT MAIN MENU (3 DOTS) */
-  #MainMenu {
-      visibility: hidden;
-  }
-  
-  /* 3. HIDE STREAMLIT FOOTER ("Made with Streamlit") */
-  footer {
-      visibility: hidden;
-  }
-  
   .stApp { background-color: #0F172A; color: #F8FAFC; }
   div[data-testid="stSidebar"] { background-color: #1E293B !important; }
   .exam-container { background-color: #1E293B; padding: 20px; border-radius: 12px; border: 2px solid #334155; margin-bottom: 15px; }

@@ -7,6 +7,41 @@ import tutor_engine as engine
 import re
 
 st.set_page_config(page_title="MathOS AI Tutor", page_icon="🧮", layout="wide")
+
+# Function to check the password
+def check_password():
+    """Returns `True` if the user enters the correct password."""
+
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        if st.session_state["password_input"] == st.secrets.get("APP_PASSWORD", ""):
+            st.session_state["password_correct"] = True
+            del st.session_state["password_input"]  # Don't keep password in memory
+        else:
+            st.session_state["password_correct"] = False
+
+    # First run or incorrect password -> show login input
+    if "password_correct" not in st.session_state:
+        st.session_state["password_correct"] = False
+
+    if not st.session_state["password_correct"]:
+        st.title("🔒 Password Protected App")
+        st.text_input(
+            "Please enter the password to access MathOS AI Tutor:",
+            type="password",
+            on_change=password_entered,
+            key="password_input"
+        )
+        if "password_correct" in st.session_state and not st.session_state["password_correct"]:
+            st.error("😕 Incorrect password. Please try again.")
+        return False
+
+    return True
+
+# Stop execution here if the user hasn't logged in correctly
+if not check_password():
+    st.stop()  # Do not run any code below this line until authenticated
+
 db.init_db()
 
 # --- CUSTOM CSS ---

@@ -271,7 +271,7 @@ CRITICAL: Do NOT say "You're welcome!". Output strictly valid JSON matching the 
                 _enforce_rate_limit()
 
                 response = client.models.generate_content_stream(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.6-flash",
                     contents=prompt,
                     config=config,
                 )

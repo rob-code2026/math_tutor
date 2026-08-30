@@ -4,9 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="23ca011c-ada1-4492-95f5-27ddd94b5093" name="Changes" comment="bullet points for 5 y/o">
+    <list default="true" id="23ca011c-ada1-4492-95f5-27ddd94b5093" name="Changes" comment="password added for public">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tutor_engine.py" beforeDir="false" afterPath="$PROJECT_DIR$/tutor_engine.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -81,12 +81,21 @@
       <option name="project" value="LOCAL" />
       <updated>1788066137251</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="password added for public">
+      <option name="closed" value="true" />
+      <created>1788068217049</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1788068217049</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="fixed latex or proper writing of numbers" />
     <MESSAGE value="bullet points for 5 y/o" />
-    <option name="LAST_COMMIT_MESSAGE" value="bullet points for 5 y/o" />
+    <MESSAGE value="password added for public" />
+    <option name="LAST_COMMIT_MESSAGE" value="password added for public" />
   </component>
 </project>

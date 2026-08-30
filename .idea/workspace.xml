@@ -4,9 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="23ca011c-ada1-4492-95f5-27ddd94b5093" name="Changes" comment="password added for public">
+    <list default="true" id="23ca011c-ada1-4492-95f5-27ddd94b5093" name="Changes" comment="updated gemini">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tutor_engine.py" beforeDir="false" afterPath="$PROJECT_DIR$/tutor_engine.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -89,13 +88,22 @@
       <option name="project" value="LOCAL" />
       <updated>1788068217049</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="updated gemini">
+      <option name="closed" value="true" />
+      <created>1788070926412</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1788070926412</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="fixed latex or proper writing of numbers" />
     <MESSAGE value="bullet points for 5 y/o" />
     <MESSAGE value="password added for public" />
-    <option name="LAST_COMMIT_MESSAGE" value="password added for public" />
+    <MESSAGE value="updated gemini" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated gemini" />
   </component>
 </project>
